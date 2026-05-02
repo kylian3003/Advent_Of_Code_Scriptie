@@ -2,8 +2,8 @@ import csv
 from pathlib import Path
 from extract_features import extract_features
 
-CORPUS_DIR = r"C:\Users\kylia\Documents\uni\Scriptie\corpus"
-OUTPUT_CSV = r"C:\Users\kylia\Documents\uni\Scriptie\dataset.csv"
+CORPUS_DIR = r"C:\Users\kylia\Documents\uni\Advent_Of_Code_Sctiptie\corpus"
+OUTPUT_CSV = r"C:\Users\kylia\Documents\uni\Advent_Of_Code_Sctiptie\dataset.csv"
 
 # _status is excluded from the csv, it's only used for the summary below
 FIELDNAMES = ["username", "year", "day", "part", "cyclomatic_complexity", "cognitive_complexity", "halstead_volume", "halstead_difficulty", "sloc", "max_nesting_depth", "comment_ratio"]
@@ -53,4 +53,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
