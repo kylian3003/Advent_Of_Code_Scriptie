@@ -6,7 +6,7 @@ CORPUS_DIR = r"C:\Users\kylia\Documents\uni\Scriptie\corpus"
 OUTPUT_CSV = r"C:\Users\kylia\Documents\uni\Scriptie\dataset.csv"
 
 # _status is excluded from the csv, it's only used for the summary below
-FIELDNAMES = ["username", "year", "day", "part", "cyclomatic_complexity", "cognitive_complexity", "halstead_volume", "halstead_difficulty"]
+FIELDNAMES = ["username", "year", "day", "part", "cyclomatic_complexity", "cognitive_complexity", "halstead_volume", "halstead_difficulty", "sloc", "max_nesting_depth"]
 
 
 def main():
