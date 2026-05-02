@@ -1,6 +1,7 @@
 import re
 import ast
 from radon.complexity import cc_visit, average_complexity
+from radon.metrics import h_visit
 from cognitive_complexity.api import get_cognitive_complexity as get_cognitive_complexity_for_function
 
 
@@ -45,7 +46,21 @@ def get_cognitive_complexity(source):
     except Exception:
         return None
     
+
+
+def get_halstead(source):
+    """Compute Halstead volume and difficulty for the whole file.
+    Volume measures the size of the implementation, difficulty measures how hard it is to write.
+    Returns (None, None) if the file can't be parsed."""
+    try:
+        result = h_visit(source)
+        volume = round(result.total.volume, 2)
+        difficulty = round(result.total.difficulty, 2)
+        return volume, difficulty
+    except Exception:
+        return None, None
     
+
 def get_file_status(source):
     """Check whether a file has functions and whether it parses successfully.
     Returns one of: 'ok', 'no_functions', 'parse_error'"""
@@ -60,8 +75,7 @@ def get_file_status(source):
         return "ok"
     except Exception:
         return "parse_error"
-    
-    
+
 
 def extract_features(py_file):
     """Extract all features from a single solution file.
@@ -73,6 +87,7 @@ def extract_features(py_file):
     part = get_part(py_file.name)
     
     source = py_file.read_text(encoding="utf-8", errors="replace")
+    halstead_volume, halstead_difficulty = get_halstead(source)
     
     return {
         "username": username,
@@ -81,6 +96,8 @@ def extract_features(py_file):
         "part": part,
         "cyclomatic_complexity": get_cyclomatic_complexity(source),
         "cognitive_complexity": get_cognitive_complexity(source),
+        "halstead_volume": halstead_volume,
+        "halstead_difficulty": halstead_difficulty,
         # status is used for the summary in main.py, not written to the csv
         "_status": get_file_status(source),
     }

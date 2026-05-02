@@ -5,7 +5,8 @@ from extract_features import extract_features
 CORPUS_DIR = r"C:\Users\kylia\Documents\uni\Scriptie\corpus"
 OUTPUT_CSV = r"C:\Users\kylia\Documents\uni\Scriptie\dataset.csv"
 
-FIELDNAMES = ["username", "year", "day", "part", "cyclomatic_complexity", "cognitive_complexity"]
+# _status is excluded from the csv, it's only used for the summary below
+FIELDNAMES = ["username", "year", "day", "part", "cyclomatic_complexity", "cognitive_complexity", "halstead_volume", "halstead_difficulty"]
 
 
 def main():
@@ -16,8 +17,7 @@ def main():
     has_cc = 0
     has_cog = 0
     no_functions = 0
-    parse_errors = 0
-
+    parse_errors = 0 
 
     with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
@@ -49,7 +49,6 @@ def main():
     print(f"Has cognitive score: {has_cog}")
     print(f"No functions found:  {no_functions}")
     print(f"Parse errors:        {parse_errors}")
-
     
 
 if __name__ == "__main__":
