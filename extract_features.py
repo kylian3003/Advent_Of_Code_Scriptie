@@ -1,8 +1,7 @@
 import re
+import ast
 from radon.complexity import cc_visit, average_complexity
 from cognitive_complexity.api import get_cognitive_complexity as get_cognitive_complexity_for_function
-import ast
-
 
 
 def get_part(filename):
@@ -19,7 +18,7 @@ def get_cyclomatic_complexity(source):
     """Compute the average cyclomatic complexity of all functions in the file.
     Returns None if the file can't be parsed."""
     try:
-        results = cc_visit(source) 
+        results = cc_visit(source)
         if not results:
             return None
         return round(average_complexity(results), 2)
@@ -32,7 +31,7 @@ def get_cognitive_complexity(source):
     Cognitive complexity measures how hard code is to understand, rather than
     just counting paths like cyclomatic complexity does.
     Returns None if the file can't be parsed."""
-    try: 
+    try:
         tree = ast.parse(source)
         scores = []
         # only iterate top-level nodes to avoid double-counting nested functions
@@ -46,8 +45,24 @@ def get_cognitive_complexity(source):
     except Exception:
         return None
     
-      
     
+def get_file_status(source):
+    """Check whether a file has functions and whether it parses successfully.
+    Returns one of: 'ok', 'no_functions', 'parse_error'"""
+    try: 
+        tree = ast.parse(source)
+        has_functions = any(
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            for node in tree.body
+        )
+        if not has_functions:
+            return "no_functions"
+        return "ok"
+    except Exception:
+        return "parse_error"
+    
+    
+
 def extract_features(py_file):
     """Extract all features from a single solution file.
     Metadata comes from the folder structure: corpus/username/year/dayNN/file.py"""
@@ -66,4 +81,6 @@ def extract_features(py_file):
         "part": part,
         "cyclomatic_complexity": get_cyclomatic_complexity(source),
         "cognitive_complexity": get_cognitive_complexity(source),
+        # status is used for the summary in main.py, not written to the csv
+        "_status": get_file_status(source),
     }
