@@ -2,3 +2,10 @@
 data/
 corpus/
 data_from_drive/
+
+# Environment
+.env
+venv/
+
+# Other files
+test.py
