@@ -1,8 +1,12 @@
 import re
 import ast
+import warnings
 from radon.complexity import cc_visit, average_complexity
 from radon.metrics import h_visit
 from cognitive_complexity.api import get_cognitive_complexity as get_cognitive_complexity_for_function
+
+# suppress SyntaxWarnings from solution files that use invalid escape sequences
+warnings.filterwarnings("ignore", category=SyntaxWarning)
 
 
 def get_part(filename):
@@ -162,6 +166,7 @@ def extract_features(py_file):
     
     return {
         "username": username,
+        "filename": py_file.name,
         "year": year,
         "day": day,
         "part": part,
