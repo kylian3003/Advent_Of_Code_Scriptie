@@ -8,6 +8,11 @@ from cognitive_complexity.api import get_cognitive_complexity as get_cognitive_c
 # suppress SyntaxWarnings from solution files that use invalid escape sequences
 warnings.filterwarnings("ignore", category=SyntaxWarning)
 
+# libraries that are considered heavy lifting for AoC puzzles
+# this metric does not indicate that the code uses the library for heavy lifting, just that it imports it at all
+# it is used as a metric for analysis when the code has suspiciously low SLOC compared to other solutions from the same puzzle
+HEAVY_LIBRARIES = {"networkx", "z3", "sympy", "scipy"}
+
 
 def get_part(filename):
     """Try to figure out if this file is part 1 or 2 based on the filename.
@@ -136,6 +141,25 @@ def get_max_nesting_depth(source):
     nesting_nodes = (ast.If, ast.For, ast.While, ast.With, ast.Try)
     return walk_depth(tree, 0, nesting_nodes)
 
+
+def get_heavy_library(source):
+    """Check if the file imports any heavy lifting libraries.
+    Returns True if a heavy library is found, False otherwise."""
+    try:
+        tree = ast.parse(source)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name.split(".")[0] in HEAVY_LIBRARIES:
+                        return True
+            elif isinstance(node, ast.ImportFrom):
+                if node.module and node.module.split(".")[0] in HEAVY_LIBRARIES:
+                    return True
+        return False
+    except Exception:
+        return False
+
+
 def get_file_status(source):
     """Check whether a file has functions and whether it parses successfully.
     Returns one of: 'ok', 'no_functions', 'parse_error'"""
@@ -178,6 +202,7 @@ def extract_features(py_file):
         "max_nesting_depth": get_max_nesting_depth(source),
         "comment_ratio": get_comment_ratio(source),
         "avg_identifier_length": get_avg_identifier_length(source),
+        "heavy_library": get_heavy_library(source),
         # status is used for the summary in main.py, not written to the csv
         "_status": get_file_status(source),
     }
