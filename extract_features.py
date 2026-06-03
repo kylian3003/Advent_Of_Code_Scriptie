@@ -3,7 +3,9 @@ import ast
 import warnings
 from radon.complexity import cc_visit, average_complexity
 from radon.metrics import h_visit
-from cognitive_complexity.api import get_cognitive_complexity as get_cognitive_complexity_for_function
+from cognitive_complexity.api import (
+    get_cognitive_complexity as get_cognitive_complexity_for_function
+)
 
 # suppress SyntaxWarnings from solution files that use invalid escape sequences
 warnings.filterwarnings("ignore", category=SyntaxWarning)
@@ -22,8 +24,6 @@ def get_part(filename):
     return None
 
 
-
-
 def get_cyclomatic_complexity(source):
     """Compute the average cyclomatic complexity of all functions in the file.
     Returns None if the file can't be parsed."""
@@ -34,9 +34,8 @@ def get_cyclomatic_complexity(source):
         return round(average_complexity(results), 2)
     except Exception:
         return None
-    
-    
-    
+
+
 def get_cognitive_complexity(source):
     """Compute the average cognitive complexity across all top-level functions in the file.
     Cognitive complexity measures how hard code is to understand, rather than
@@ -55,7 +54,6 @@ def get_cognitive_complexity(source):
         return round(sum(scores) / len(scores), 2)
     except Exception:
         return None
-    
 
 
 def get_halstead(source):
@@ -69,7 +67,7 @@ def get_halstead(source):
         return volume, difficulty
     except Exception:
         return None, None
-    
+
 
 def get_avg_identifier_length(source):
     """Compute the average length of all identifiers (variable, function, and argument names).
@@ -105,7 +103,6 @@ def get_sloc(source):
     return count
 
 
-
 def get_comment_ratio(source):
     """Compute the ratio of comment lines to total non-blank lines.
     A higher ratio means more of the code is commented/documented."""
@@ -138,7 +135,7 @@ def get_max_nesting_depth(source):
         tree = ast.parse(source)
     except Exception:
         return None
-    
+
     nesting_nodes = (ast.If, ast.For, ast.While, ast.With, ast.Try)
     return walk_depth(tree, 0, nesting_nodes)
 
@@ -164,7 +161,7 @@ def get_heavy_library(source):
 def get_file_status(source):
     """Check whether a file has functions and whether it parses successfully.
     Returns one of: 'ok', 'no_functions', 'parse_error'"""
-    try: 
+    try:
         tree = ast.parse(source)
         has_functions = any(
             isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
@@ -185,10 +182,10 @@ def extract_features(py_file):
     year = int(parts[-3])
     day = int(parts[-2].replace("day", ""))
     part = get_part(py_file.name)
-    
+
     source = py_file.read_text(encoding="utf-8", errors="replace")
     halstead_volume, halstead_difficulty = get_halstead(source)
-    
+
     return {
         "username": username,
         "filename": py_file.name,

@@ -39,7 +39,7 @@ def run_once(original_file, original_dir, input_file):
             timeout=TIMEOUT,
         )
         elapsed = time.perf_counter() - start
- 
+
         if result.returncode != 0:
             stderr = result.stderr.decode("utf-8", errors="replace").strip()
             reason = stderr.splitlines()[-1] if stderr else "non-zero exit code"
@@ -70,7 +70,7 @@ def main():
 
     total = 0
     succeeded = 0
-    no_input = 0 
+    no_input = 0
     timed_out = 0
     error_counts = {}
 
@@ -90,8 +90,7 @@ def main():
             if year not in SUPPORTED_YEARS:
                 continue
 
-            total += 1 
-
+            total += 1
 
             input_dir = input_root / str(year) / f"day{day:02d}"
             input_files = list(input_dir.glob("*.txt")) if input_dir.exists() else []
@@ -119,7 +118,7 @@ def main():
                 print(f"OK ({runtime}s): {username}/{year}/day{day:02d}/{filename}")
 
             writer.writerow({"username": username, "year": year, "day": day, "filename": filename, "runtime": runtime})
-    
+
     total_failed = total - succeeded - no_input
     print("\n" + "=" * 40)
     print(f"Total:          {total}")
@@ -135,4 +134,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    

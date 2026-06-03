@@ -67,6 +67,7 @@ YEAR_PATTERNS = [
     re.compile(r"(?:aoc)[_\-\s]?(\d{2})\b", re.IGNORECASE),     # AOC 24
 ]
 
+
 def extract_year(path_parts: list[str]) -> str | None:
     """Try to find a 4-digit AoC year in the path components."""
     for part in reversed(path_parts):
@@ -92,6 +93,7 @@ def extract_year(path_parts: list[str]) -> str | None:
 #   part_one.py inside day_1/            day from parent folder
 #   aoc201801                            year+day in name
 
+
 DAY_FOLDER_PATTERNS = [
     re.compile(r"day[_\-]?0*(\d{1,2})", re.IGNORECASE),      # day01, Day-04
     re.compile(r"\bday_0*(\d{1,2})\b", re.IGNORECASE),        # day_1
@@ -102,10 +104,10 @@ DAY_FOLDER_PATTERNS = [
 ]
 
 DAY_FILENAME_PATTERNS = [
-    re.compile(r"day[_\-]?0*(\d{1,2})(?:p\d+)?", re.IGNORECASE),  # day16p1, day_01
-    re.compile(r"advent0*(\d{1,2})\b", re.IGNORECASE),             # advent16
-    re.compile(r"(?:aoc\d{4})0*(\d{2})\b", re.IGNORECASE),         # aoc201801
-    re.compile(r"^0*(\d{1,2})[a-z]?(?:[_\-]\d)?\.", re.IGNORECASE), # 04A.py, 16a.py, 03-1.py, 19.py
+    re.compile(r"day[_\-]?0*(\d{1,2})(?:p\d+)?", re.IGNORECASE),     # day16p1, day_01
+    re.compile(r"advent0*(\d{1,2})\b", re.IGNORECASE),               # advent16
+    re.compile(r"(?:aoc\d{4})0*(\d{2})\b", re.IGNORECASE),           # aoc201801
+    re.compile(r"^0*(\d{1,2})[a-z]?(?:[_\-]\d)?\.", re.IGNORECASE),  # 04A.py, 16a.py, 03-1.py, 19.py
 ]
 
 
@@ -115,7 +117,7 @@ def extract_day(path_parts: list[str]) -> str | None:
     then fall back to the filename itself.
     """
     filename = path_parts[-1]
-    folders  = path_parts[:-1]
+    folders = path_parts[:-1]
 
     # 1. Search folder names (deepest first)
     for part in reversed(folders):
@@ -142,11 +144,12 @@ FILENAME_YEAR_DAY = re.compile(
     r"(?:aoc[_\-]?)?(20\d{2})[_\-]?0*(\d{1,2})", re.IGNORECASE
 )
 
+
 def extract_year_day_from_filename(filename: str):
     """For files like aoc_2015_01.py where year+day are both in the name."""
     m = FILENAME_YEAR_DAY.search(filename)
     if m:
-        yr  = int(m.group(1))
+        yr = int(m.group(1))
         day = int(m.group(2))
         if 2015 <= yr <= 2030 and 1 <= day <= 25:
             return str(yr), f"{day:02d}"
@@ -245,8 +248,6 @@ def copy_solution(src_file: Path, dst_dir: Path, new_name: str, log: list, path_
     log.append(f"  COPIED  {src_file}  →  {dst_file}")
 
 
-
-
 def process_repos(src_root: Path, dst_root: Path):
     copied = 0
     skipped_files = []
@@ -267,17 +268,16 @@ def process_repos(src_root: Path, dst_root: Path):
             dirs[:] = [d for d in dirs if not should_skip_folder(d)]
 
             root_path = Path(root)
-            py_files  = [f for f in files if f.endswith(".py")]
+            py_files = [f for f in files if f.endswith(".py")]
 
             for fname in py_files:
                 src_file = root_path / fname
-
 
                 if is_skip_file(fname):
                     skipped_files.append(str(src_file))
                     continue
 
-                rel   = src_file.relative_to(repo_dir)
+                rel = src_file.relative_to(repo_dir)
                 parts = list(rel.parts)   # e.g. ['2024', 'Day-04', 'solution1.py']
 
                 # Strategy 1: year+day both embedded in filename (e.g. aoc_2024_01.py)
@@ -300,12 +300,11 @@ def process_repos(src_root: Path, dst_root: Path):
         for line in log:
             print(line)
 
-
     # Summary
     print("\n" + "=" * 60)
     print(f"Done. {copied} files copied to {dst_root}")
     print(f"{len(skipped_files)} files skipped (tests/utils/templates)")
-    print(f"{len(unresolved)} files could NOT be resolved — review manually:") 
+    print(f"{len(unresolved)} files could NOT be resolved — review manually:")
     for f in unresolved:
         print(f"  !! {f}")
 
@@ -336,7 +335,6 @@ if __name__ == "__main__":
     parser.add_argument("--dst", default=DST_DIR, help="Destination corpus folder")
     args = parser.parse_args()
 
-
     src = Path(args.src)
     dst = Path(args.dst)
 
@@ -347,4 +345,3 @@ if __name__ == "__main__":
     print(f"Source : {src}")
     print(f"Dest   : {dst}")
     process_repos(src, dst)
-    
