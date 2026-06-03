@@ -1,12 +1,24 @@
 import os
 import sys
+import csv
 import json
+import time
+from pathlib import Path
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 
 load_dotenv()
 
+CORPUS_DIR = r'C:\Users\kylia\Documents\uni\Advent_Of_Code_Sctiptie\corpus'
+DATASET_CSV = r'C:\Users\kylia\Documents\uni\Advent_Of_Code_Sctiptie\dataset.csv'
+OUTPUT_CSV  = r'C:\Users\kylia\Documents\uni\Advent_Of_Code_Sctiptie\dataset_readability.csv'
+
+READABILITY_FIELDS = [
+    'username', 'year', 'day', 'filename',
+    'readability_score',
+    'naming', 'modularity', 'control_flow', 'comments_docs', 'pythonic_style'
+]
 
 PROMPT = '''You are an expert software engineer and code reviewer specializing in Python.
 Your task is to evaluate the human readability of the Python script provided below.
@@ -39,80 +51,145 @@ Respond with ONLY a valid JSON object, no markdown, no preamble, no extra text.
 Use this exact schema:
 {{
   "readability_score": <integer 1-10>,
-  "naming": {{"score": <integer 1-10>, "comment": "<one sentence>"}},
-  "modularity": {{"score": <integer 1-10>, "comment": "<one sentence>"}},
-  "control_flow": {{"score": <integer 1-10>, "comment": "<one sentence>"}},
-  "comments_docs": {{"score": <integer 1-10>, "comment": "<one sentence>"}},
-  "pythonic_style": {{"score": <integer 1-10>, "comment": "<one sentence>"}},
-  "summary": "<two to three sentences explaining the overall readability score>"
+  "naming": <integer 1-10>,
+  "modularity": <integer 1-10>,
+  "control_flow": <integer 1-10>,
+  "comments_docs": <integer 1-10>,
+  "pythonic_style": <integer 1-10>
 }}'''
+
+
+def load_csv(filepath):
+    '''
+    This function loads dataset.csv and returns the rows and fieldnames.
+    '''
+    with open(filepath, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+    return rows
+
+
+def load_completed(filepath):
+    '''
+    This function loads already completed rows from the output csv as a set of keys.
+    '''
+    completed = set()
+    if not os.path.isfile(filepath):
+        return completed
+    with open(filepath, 'r', encoding='utf-8') as f:
+        for row in csv.DictReader(f):
+            completed.add((row['username'], row['year'], row['day'], row['filename']))
+    return completed
+
+
+def append_row(filepath, row):
+    '''
+    This function appends a single result row to the output csv.
+    '''
+    file_exists = os.path.isfile(filepath)
+    with open(filepath, 'a', newline='', encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fieldnames=READABILITY_FIELDS)
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(row)
 
 
 def read_file(filepath):
     '''
     This function reads a Python file and returns its contents as a string.
     '''
-    if not os.path.isfile(filepath): 
-        print('File not found: {}'.format(filepath), file=sys.stderr)
-        exit(-1)
-    with open(filepath, 'r') as f:
-        code = f.read()
-    if not code.strip():
-        print('The file is empty: {}'.format(filepath), file=sys.stderr)
-        exit(-1)
-    return code
+    with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+        return f.read()
 
 
-def call_gemini(code, api_key):
+def call_gemini(code, client):
     '''
-    This function sends the code to the Gemini API and returns the raw response text.
+    This function sends the code to the Gemini API and returns the parsed JSON result.
+    Retries up to 5 times on rate limit or server errors, waiting 60 seconds between attempts.
     '''
-    client = genai.Client(api_key=api_key) 
-    response = client.models.generate_content(
-        model='gemini-2.0-flash',
-        contents=PROMPT.format(code=code),
-        config=types.GenerateContentConfig(
-            temperature=0.0,
-            response_mime_type='application/json'
-        )
-    )
-    return response.text.strip()
+    max_retries = 5
+    wait_seconds = 60
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            response = client.models.generate_content(
+                model='gemini-2.5-flash-lite',
+                contents=PROMPT.format(code=code),
+                config=types.GenerateContentConfig(
+                    temperature=0.0,
+                    response_mime_type='application/json'
+                )
+            )
+            return json.loads(response.text.strip())
+        except Exception as e:
+            error = str(e)
+            if '429' in error or '500' in error or '503' in error:
+                if attempt < max_retries:
+                    print('\nRate limit or server error, retrying in {}s ({}/{})...'.format(
+                        wait_seconds, attempt, max_retries), file=sys.stderr)
+                    time.sleep(wait_seconds)
+                else:
+                    raise
+            else:
+                raise
 
 
-
-def parse_response(raw):
+def find_file(corpus_dir, username, year, day, filename):
     '''
-    This function parses the JSON response from Gemini and returns it as a dict.
+    This function reconstructs the path to a Python file from its metadata.
     '''
-    try:
-        result = json.loads(raw) 
-    except json.JSONDecodeError:
-        print('Could not parse Gemini response as JSON.', file=sys.stderr)
-        exit(-1)
-    return result
+    return Path(corpus_dir) / username / str(year) / 'day{:02d}'.format(int(day)) / filename
 
 
-def annotate(filepath):
-    '''
-    This function ties together reading, calling the API and printing the result.
-    '''
+def main():
     api_key = os.environ.get('GEMINI_API_KEY')
     if not api_key:
         print('No API key found. Add GEMINI_API_KEY to your .env file.', file=sys.stderr)
         exit(-1)
 
-    code = read_file(filepath)
-    raw = call_gemini(code, api_key)
-    result = parse_response(raw)
-    result['annotated_file'] = os.path.basename(filepath)
-    print(json.dumps(result, indent=2))
+    client = genai.Client(api_key=api_key)
+    rows = load_csv(DATASET_CSV)
+    completed = load_completed(OUTPUT_CSV)
+    total = len(rows)
 
-    
-def main():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    filepath = os.path.join(script_dir, 'test.py')
-    annotate(filepath)
+    for i, row in enumerate(rows, 1):
+        key = (row['username'], row['year'], row['day'], row['filename'])
 
-    
+        # skip rows that were already annotated in a previous run
+        if key in completed:
+            print('Already annotated: {}/{}'.format(i, total), end='\r', flush=True)
+            continue
+
+        print('Annotating: {}/{}'.format(i, total), end='\r', flush=True)
+
+        try:
+            py_file = find_file(
+                CORPUS_DIR,
+                row['username'], row['year'], row['day'], row['filename']
+            )
+            code = read_file(py_file)
+            result = call_gemini(code, client)
+
+            append_row(OUTPUT_CSV, {
+                'username':         row['username'],
+                'year':             row['year'],
+                'day':              row['day'],
+                'filename':         row['filename'],
+                'readability_score': result['readability_score'],
+                'naming':           result['naming'],
+                'modularity':       result['modularity'],
+                'control_flow':     result['control_flow'],
+                'comments_docs':    result['comments_docs'],
+                'pythonic_style':   result['pythonic_style']
+            })
+
+        except Exception as e:
+            print('\nSkipped {} {}/{} {}: {}'.format(
+                row['username'], row['year'], row['day'], row.get('filename', '?'), e), file=sys.stderr)
+            continue
+
+    print('\nDone. Results saved to {}'.format(OUTPUT_CSV))
+
+
 if __name__ == '__main__':
     main()
