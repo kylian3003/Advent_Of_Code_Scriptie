@@ -1,0 +1,328 @@
+---
+title: "Thesis Data Analysis"
+author: "Kylian de Rooij"
+date: "04-06-2026"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(irr)
+library(lme4)
+library(lmerTest)
+library(MuMIn)
+
+metrics     <- read_csv("dataset.csv")
+readability <- read_csv("dataset_readability.csv")
+human       <- read_csv("human_readability_annotation.csv")
+runtime     <- read_csv("runtimes.csv")
+
+df <- left_join(metrics, readability, by = c("username", "year", "day", "filename"))
+df <- left_join(df, human, by = c("username", "year", "day", "filename"))
+df <- left_join(df, runtime, by = c("username", "year", "day"))
+
+df <- df |>
+  mutate(
+    heavy_library = as.logical(heavy_library),
+    year = as.integer(year),
+    day  = as.integer(day)
+  ) |>
+  filter(sloc > 0)
+
+cat("Rows:", nrow(df), "\n")
+cat("Rows with human annotation:", sum(!is.na(df$human_readability)), "\n")
+cat("Rows with runtime:", sum(!is.na(df$runtime)), "\n")
+```
+
+## Cohen's Kappa
+
+```{r warning=FALSE}
+annotated <- df |> filter(!is.na(human_readability))
+scores <- annotated |> select(readability_score, human_readability)
+
+kappa2(scores, weight = "squared")
+
+annotated <- annotated |> mutate(diff = abs(readability_score - human_readability))
+cat("Mean absolute difference:", round(mean(annotated$diff), 2), "\n")
+cat("Identical:", sum(annotated$diff == 0), "out of 50\n")
+cat("Within 1 point:", sum(annotated$diff <= 1), "out of 50\n")
+```
+
+## Descriptive Statistics
+
+```{r warning=FALSE}
+df |>
+  select(cyclomatic_complexity, cognitive_complexity,
+         halstead_volume, halstead_difficulty,
+         sloc, max_nesting_depth, readability_score) |>
+  summary()
+
+cat("\nReadability score distribution:\n")
+table(df$readability_score)
+```
+
+## Normality Tests
+
+```{r}
+set.seed(42)
+s <- df |> slice_sample(n = 1000)
+
+shapiro.test(s$cyclomatic_complexity)
+shapiro.test(s$cognitive_complexity)
+shapiro.test(s$halstead_volume)
+shapiro.test(s$halstead_difficulty)
+shapiro.test(s$sloc)
+shapiro.test(s$readability_score)
+```
+
+## Missing Values
+
+```{r}
+cat("Rows with any NA in complexity columns:",
+    sum(!complete.cases(df |> select(cyclomatic_complexity, cognitive_complexity,
+                                      halstead_volume, halstead_difficulty,
+                                      max_nesting_depth))), "\n")
+
+cat("Rows where both cyclomatic and cognitive are NA:",
+    sum(is.na(df$cyclomatic_complexity) & is.na(df$cognitive_complexity)), "\n")
+
+df |> filter(is.na(cyclomatic_complexity)) |> count(year)
+```
+
+## Outlier Check
+
+```{r}
+df <- df |>
+  group_by(day) |>
+  mutate(
+    sloc_zscore = (sloc - mean(sloc, na.rm = TRUE)) / sd(sloc, na.rm = TRUE),
+    short_file  = sloc_zscore < -2
+  ) |>
+  ungroup()
+
+cat("Suspiciously short files:", sum(df$short_file, na.rm = TRUE), "\n")
+cat("Heavy library files:", sum(df$heavy_library, na.rm = TRUE), "\n")
+cat("Final rows:", nrow(df), "\n")
+```
+
+## Spearman Correlations: Complexity vs Readability
+
+```{r warning=FALSE}
+metrics_list <- c("cyclomatic_complexity", "cognitive_complexity",
+                  "halstead_volume", "halstead_difficulty",
+                  "sloc", "max_nesting_depth")
+
+cat("=== FULL DATASET ===\n")
+for (m in metrics_list) {
+  test <- suppressWarnings(cor.test(df[[m]], df$readability_score, method = "spearman"))
+  cat(m, ": rho =", round(test$estimate, 3), ", p < 0.001\n")
+}
+
+cat("\n=== EXCLUDING HEAVY LIBRARY FILES ===\n")
+df_noheavy <- df |> filter(heavy_library == FALSE)
+for (m in metrics_list) {
+  test <- suppressWarnings(cor.test(df_noheavy[[m]], df_noheavy$readability_score, method = "spearman"))
+  cat(m, ": rho =", round(test$estimate, 3), ", p < 0.001\n")
+}
+```
+
+## Difficulty Progression (RQ3)
+
+```{r warning=FALSE}
+day_summary <- df |>
+  group_by(day) |>
+  summarise(
+    mean_readability = mean(readability_score, na.rm = TRUE),
+    mean_cyclomatic  = mean(cyclomatic_complexity, na.rm = TRUE),
+    mean_cognitive   = mean(cognitive_complexity, na.rm = TRUE),
+    mean_sloc        = mean(sloc, na.rm = TRUE),
+    n = n()
+  )
+
+print(day_summary, n = 25)
+
+cat("\n=== CORRELATION WITH PUZZLE DAY ===\n")
+for (v in c("readability_score", "cyclomatic_complexity", "cognitive_complexity", "sloc")) {
+  test <- suppressWarnings(cor.test(df$day, df[[v]], method = "spearman"))
+  cat(v, ": rho =", round(test$estimate, 3), ", p < 0.001\n")
+}
+```
+
+## ANOVA: Difficulty Groups
+
+```{r}
+df <- df |>
+  mutate(difficulty_group = case_when(
+    day <= 8  ~ "Early (1-8)",
+    day <= 16 ~ "Mid (9-16)",
+    TRUE      ~ "Late (17-25)"
+  ))
+
+anova_result <- aov(readability_score ~ difficulty_group, data = df)
+summary(anova_result)
+TukeyHSD(anova_result)
+```
+
+## Paired T-tests: Part 1 vs Part 2
+
+```{r}
+df_parts <- df |>
+  filter(!is.na(part)) |>
+  group_by(username, year, day) |>
+  filter(sum(part == 1) == 1 & sum(part == 2) == 1) |>
+  ungroup()
+
+cat("Clean pairs:", nrow(df_parts) / 2, "\n")
+
+part1 <- df_parts |> filter(part == 1) |> arrange(username, year, day)
+part2 <- df_parts |> filter(part == 2) |> arrange(username, year, day)
+
+for (v in c("readability_score", "cyclomatic_complexity", "cognitive_complexity", "sloc")) {
+  test <- t.test(part1[[v]], part2[[v]], paired = TRUE, na.action = na.omit)
+  cat(v, ":\n")
+  cat("  mean part 1:", round(mean(part1[[v]], na.rm = TRUE), 3), "\n")
+  cat("  mean part 2:", round(mean(part2[[v]], na.rm = TRUE), 3), "\n")
+  cat("  difference:", round(test$estimate, 3), "\n")
+  cat("  t =", round(test$statistic, 3), ", p =", round(test$p.value, 4), "\n")
+  cat("  95% CI: [", round(test$conf.int[1], 3), ",", round(test$conf.int[2], 3), "]\n\n")
+}
+```
+
+## Runtime Analysis
+
+```{r warning=FALSE}
+df_runtime <- df |> filter(!is.na(runtime))
+cat("Rows with runtime:", nrow(df_runtime), "\n")
+summary(df_runtime$runtime)
+
+test <- suppressWarnings(cor.test(df_runtime$runtime, df_runtime$readability_score, method = "spearman"))
+cat("Runtime vs readability: rho =", round(test$estimate, 3), ", p =", round(test$p.value, 4), "\n")
+
+cat("\n=== RUNTIME VS ALL METRICS ===\n")
+for (v in c("readability_score", "cyclomatic_complexity", "cognitive_complexity",
+            "halstead_volume", "halstead_difficulty", "sloc", "max_nesting_depth",
+            "comment_ratio", "avg_identifier_length")) {
+  test <- suppressWarnings(cor.test(df_runtime$runtime, df_runtime[[v]], method = "spearman"))
+  cat(v, ": rho =", round(test$estimate, 3), ", p =", round(test$p.value, 4), "\n")
+}
+```
+
+## OLS and LMER Models
+
+```{r warning=FALSE, message=FALSE}
+df_model <- df |>
+  filter(!is.na(cyclomatic_complexity) & !is.na(cognitive_complexity)) |>
+  mutate(across(c(cyclomatic_complexity, cognitive_complexity,
+                  halstead_volume, halstead_difficulty,
+                  sloc, max_nesting_depth), scale))
+
+ols <- lm(readability_score ~ cyclomatic_complexity + cognitive_complexity +
+            halstead_volume + halstead_difficulty + sloc + max_nesting_depth,
+          data = df_model)
+
+cat("=== OLS ===\n")
+summary(ols)
+
+model <- lmer(readability_score ~ cyclomatic_complexity + cognitive_complexity +
+                halstead_volume + halstead_difficulty + sloc + max_nesting_depth +
+                (1 | username),
+              data = df_model, REML = FALSE)
+
+cat("\n=== LMER ===\n")
+summary(model)
+
+var_components <- as.data.frame(VarCorr(model))
+user_var  <- var_components[var_components$grp == "username", "vcov"]
+resid_var <- var_components[var_components$grp == "Residual", "vcov"]
+cat("\nICC:", round(user_var / (user_var + resid_var), 3), "\n")
+
+r2 <- r.squaredGLMM(model)
+cat("Marginal R²:", round(r2[1], 3), "\n")
+cat("Conditional R²:", round(r2[2], 3), "\n")
+```
+
+## Sub-dimension Dominance
+
+```{r}
+for (s in c("naming", "modularity", "control_flow", "comments_docs", "pythonic_style")) {
+  r2 <- summary(lm(as.formula(paste("readability_score ~", s)), data = df))$r.squared
+  cat(s, ": R² =", round(r2, 3), "\n")
+}
+```
+
+## Plots
+
+```{r message=FALSE, warning=FALSE}
+base_size <- 11
+
+p1 <- ggplot(df, aes(x = factor(readability_score))) +
+  geom_bar(fill = "steelblue", alpha = 0.8) +
+  labs(title = "Distribution of LLM Readability Scores",
+       x = "Readability Score", y = "Count") +
+  theme_minimal(base_size = base_size)
+
+cor_results <- data.frame(
+  metric = c("Cyclomatic", "Cognitive", "Halstead Volume",
+             "Halstead Difficulty", "SLOC", "Max Nesting Depth"),
+  rho    = c(-0.382, -0.417, -0.241, -0.238, 0.173, -0.218)
+)
+
+p2 <- ggplot(cor_results, aes(x = reorder(metric, rho), y = rho, fill = rho > 0)) +
+  geom_bar(stat = "identity", alpha = 0.8) +
+  coord_flip() +
+  scale_fill_manual(values = c("steelblue", "coral"), guide = "none") +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(title = "Spearman Correlation with Readability Score",
+       x = "", y = "Spearman's rho") +
+  theme_minimal(base_size = base_size)
+
+p3 <- ggplot(df |> filter(!is.na(cognitive_complexity)),
+       aes(x = cognitive_complexity, y = readability_score)) +
+  geom_point(alpha = 0.1, color = "steelblue") +
+  geom_smooth(method = "lm", color = "red", se = TRUE) +
+  coord_cartesian(xlim = c(0, 40)) +
+  labs(title = "Cognitive Complexity vs Readability Score",
+       x = "Cognitive Complexity", y = "Readability Score",
+       caption = "X-axis capped at 40") +
+  theme_minimal(base_size = base_size)
+
+p4 <- ggplot(df |> filter(!is.na(halstead_volume)),
+       aes(x = halstead_volume, y = readability_score)) +
+  geom_point(alpha = 0.1, color = "steelblue") +
+  geom_smooth(method = "lm", color = "red", se = TRUE) +
+  coord_cartesian(xlim = c(0, 2000), ylim = c(1, 9)) +
+  labs(title = "Halstead Volume vs Readability Score",
+       x = "Halstead Volume", y = "Readability Score",
+       caption = "X-axis capped at 2000") +
+  theme_minimal(base_size = base_size)
+
+p5 <- ggplot(df |> filter(!is.na(cognitive_complexity)),
+       aes(x = factor(readability_score), y = cognitive_complexity)) +
+  geom_boxplot(fill = "steelblue", alpha = 0.7, outlier.alpha = 0.2) +
+  coord_cartesian(ylim = c(0, 30)) +
+  labs(title = "Cognitive Complexity by Readability Score",
+       x = "Readability Score", y = "Cognitive Complexity",
+       caption = "Y-axis capped at 30") +
+  theme_minimal(base_size = base_size)
+
+p6 <- ggplot(day_summary, aes(x = day)) +
+  geom_line(aes(y = mean_readability, color = "Readability"), alpha = 0.4) +
+  geom_line(aes(y = mean_cognitive, color = "Cognitive Complexity"), alpha = 0.4) +
+  geom_smooth(aes(y = mean_readability, color = "Readability"), se = FALSE) +
+  geom_smooth(aes(y = mean_cognitive, color = "Cognitive Complexity"), se = FALSE) +
+  scale_color_manual(values = c("Readability" = "steelblue", "Cognitive Complexity" = "coral")) +
+  labs(title = "Readability and Cognitive Complexity Across Puzzle Days",
+       x = "Puzzle Day", y = "Mean Score", color = "Metric") +
+  theme_minimal(base_size = base_size)
+
+ggsave("p1_readability_distribution.pdf",      plot = p1, width = 5, height = 3.5)
+ggsave("p2_correlation_bar.pdf",               plot = p2, width = 5, height = 3.5)
+ggsave("p3_cognitive_vs_readability.pdf",      plot = p3, width = 5, height = 3.5)
+ggsave("p4_halstead_vs_readability.pdf",       plot = p4, width = 5, height = 3.5)
+ggsave("p5_cognitive_by_readability_box.pdf",  plot = p5, width = 5, height = 3.5)
+ggsave("p6_readability_complexity_by_day.pdf", plot = p6, width = 5, height = 3.5)
+
+cat("Plots saved to:", getwd(), "\n")
+```
