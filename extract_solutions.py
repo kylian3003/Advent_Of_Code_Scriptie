@@ -25,8 +25,8 @@ from pathlib import Path
 
 
 # Edit these defaults if you don't want to pass CLI arguments
-SRC_DIR = r"C:\Users\kylia\Documents\uni\Advent_Of_Code_Sctiptie\data"
-DST_DIR = r"C:\Users\kylia\Documents\uni\Advent_Of_Code_Sctiptie\corpus"
+SRC_DIR = r"C:\Users\kylia\Documents\uni\Advent_Of_Code_Scriptie\data"
+DST_DIR = r"C:\Users\kylia\Documents\uni\Advent_Of_Code_Scriptie\corpus"
 
 
 # Files whose names strongly suggest they are NOT puzzle solutions

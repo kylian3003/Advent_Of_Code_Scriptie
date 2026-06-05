@@ -2,8 +2,8 @@ import csv
 from pathlib import Path
 from extract_features import extract_features
 
-CORPUS_DIR = r"C:\Users\kylia\Documents\uni\Advent_Of_Code_Sctiptie\corpus"
-OUTPUT_CSV = r"C:\Users\kylia\Documents\uni\Advent_Of_Code_Sctiptie\dataset.csv"
+CORPUS_DIR = r"C:\Users\kylia\Documents\uni\Advent_Of_Code_Scriptie\corpus"
+OUTPUT_CSV = r"C:\Users\kylia\Documents\uni\Advent_Of_Code_Scriptie\dataset.csv"
 
 # _status is excluded from the csv, it's only used for the summary below
 FIELDNAMES = [

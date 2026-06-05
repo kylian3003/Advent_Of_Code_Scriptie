@@ -10,9 +10,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-CORPUS_DIR = r'C:\Users\kylia\Documents\uni\Advent_Of_Code_Sctiptie\corpus'
-DATASET_CSV = r'C:\Users\kylia\Documents\uni\Advent_Of_Code_Sctiptie\dataset.csv'
-OUTPUT_CSV  = r'C:\Users\kylia\Documents\uni\Advent_Of_Code_Sctiptie\dataset_readability.csv'
+CORPUS_DIR = r'C:\Users\kylia\Documents\uni\Advent_Of_Code_Scriptie\corpus'
+DATASET_CSV = r'C:\Users\kylia\Documents\uni\Advent_Of_Code_Scriptie\dataset.csv'
+OUTPUT_CSV  = r'C:\Users\kylia\Documents\uni\Advent_Of_Code_Scriptie\dataset_readability.csv'
 
 READABILITY_FIELDS = [
     'username', 'year', 'day', 'filename',

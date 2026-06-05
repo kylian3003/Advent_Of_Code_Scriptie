@@ -4,9 +4,9 @@ import subprocess
 import time
 from pathlib import Path
 
-PATH_MAP_CSV = r"C:\Users\kylia\Documents\uni\Advent_Of_Code_Sctiptie\corpus\path_map.csv"
-INPUT_DIR = r"C:\Users\kylia\Documents\uni\Advent_Of_Code_Sctiptie\input_files"
-OUTPUT_CSV = r"C:\Users\kylia\Documents\uni\Advent_Of_Code_Sctiptie\runtimes.csv"
+PATH_MAP_CSV = r"C:\Users\kylia\Documents\uni\Advent_Of_Code_Scriptie\corpus\path_map.csv"
+INPUT_DIR = r"C:\Users\kylia\Documents\uni\Advent_Of_Code_Scriptie\input_files"
+OUTPUT_CSV = r"C:\Users\kylia\Documents\uni\Advent_Of_Code_Scriptie\runtimes.csv"
 
 FIELDNAMES = ["username", "year", "day", "filename", "runtime"]
 
